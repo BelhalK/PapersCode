@@ -4,6 +4,8 @@ from torch.optim.optimizer import required
 import math
 import numpy as np
 
+#import torch.distributions.laplace.Laplace as Laplace
+
 class SAGD(Optimizer):
     def __init__(self, params, lr=required, momentum=0, noise =0, dampening=0,
                  weight_decay=0, nesterov=False):
@@ -53,12 +55,28 @@ class SAGD(Optimizer):
             for p, noise in zip(group['params'], noise_group):
                 if p.grad is None:
                     continue
+                # d_p = p.grad.data
+                # scale = torch.abs(torch.max(d_p) - torch.min(d_p))
+                # noi = group['noise'] * scale
+                # noi = max(noi, 1e-5)
+                # noise.normal_(0, noi)
+                # d_p = d_p.add_(noise)
+
+                ##### update to istropic noise #####
+
                 d_p = p.grad.data
-                scale = torch.abs(torch.max(d_p) - torch.min(d_p))
-                noi = group['noise'] * scale
-                noi = max(noi, 1e-5)
-                noise.normal_(0, noi)
+                noi = group['noise']
+
+                ###### Gaussian noise #######
+                # noise.normal_(0, noi)
+                # d_p = d_p.add_(noise)
+
+                ##### Laplace noise #########
+                sigma = noi*torch.ones(d_p.size())
+                mean = torch.zeros(d_p.size())
+                noise = torch.distributions.laplace.Laplace(mean,sigma).sample()
                 d_p = d_p.add_(noise)
+
 
                 if weight_decay != 0:
                     d_p.add_(weight_decay, p.data)
@@ -74,7 +92,7 @@ class SAGD(Optimizer):
                     else:
                         d_p = buf
 
-                scale = torch.abs(torch.max(d_p) - torch.min(d_p))
+#                scale = torch.abs(torch.max(d_p) - torch.min(d_p))
 #                print(scale)
 
                 # oi = group['noise'] * scale

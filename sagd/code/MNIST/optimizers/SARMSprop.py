@@ -42,9 +42,9 @@ class SARMSprop(Optimizer):
                 noise = torch.zeros(p.size()).to(p.device)
                 noise_group.append(noise)
             self.noise_groups.append(noise_group)
-        
-        
-        
+
+
+
 
     def __setstate__(self, state):
         super(SARMSprop, self).__setstate__(state)
@@ -62,22 +62,38 @@ class SARMSprop(Optimizer):
         if closure is not None:
             loss = closure()
 
-        for group,  noise_group in zip(self.param_groups, self.noise_groups): 
-            
+        for group,  noise_group in zip(self.param_groups, self.noise_groups):
+
             for p, noise in zip(group['params'], noise_group):
                 if p.grad is None:
                     continue
-                
+                #
+                # grad = p.grad.data
+                #
+                # scale = torch.abs(torch.max(grad) - torch.min(grad))
+                #
+                # noi = group['noise'] * scale
+                # noi = max(noi, 1e-5)
+                # noise.normal_(0, noi)
+                #
+                # grad = grad.add_(noise)
+
+                ##### update to istropic noise #####
+
                 grad = p.grad.data
-                
-                scale = torch.abs(torch.max(grad) - torch.min(grad))
-                
-                noi = group['noise'] * scale
-                noi = max(noi, 1e-5)
-                noise.normal_(0, noi)
-                
+                noi = group['noise']
+
+                ###### Gaussian noise #######
+                # noise.normal_(0, noi)
+                # grad = grad.add_(noise)
+
+
+                ##### Laplace noise #########
+                sigma = noi*torch.ones(grad.size())
+                mean = torch.zeros(grad.size())
+                noise = torch.distributions.laplace.Laplace(mean,sigma).sample()
                 grad = grad.add_(noise)
-                
+
                 if grad.is_sparse:
                     raise RuntimeError('RMSprop does not support sparse gradients')
                 state = self.state[p]

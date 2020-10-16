@@ -1,3 +1,4 @@
+# python3 -u run_sigmoid.py --lr 0.0001 --noise-coe 0.01 --batch-size 128 --epochs 50 --repeat 5  --optim 'SARMSprop' > logfiles/sarmsprop.txt
 import torch
 import argparse
 from torch.autograd import Variable
@@ -9,6 +10,7 @@ import datasets
 import torch.backends.cudnn as cudnn
 import numpy as np
 import os
+import torchvision
 
 #from SAGD import SAGD
 from optimizers.adabound import AdaBound
@@ -22,6 +24,7 @@ from optimizers.SAGD_sparse import SAGDSparse
 from optimizers.SAdagrad_sparse import SAdagradSparse
 from optimizers.SARMSprop_sparse import SARMSpropSparse
 import pickle
+import pdb
 
 
 def get_parser():
@@ -72,16 +75,23 @@ def get_parser():
 
 def build_dataset(args):
     print('==> Preparing data..')
-    train_set = datasets.MNIST(
-        '../data', train=True, download=False,
-        transform=transforms.ToTensor())
-    test_set = datasets.MNIST(
-        '../data', train=False, download=False,
-        transform=transforms.ToTensor())
+    # train_set = datasets.MNIST(
+    #     './data', train=True, download=False,
+    #     transform=transforms.ToTensor())
+    # test_set = datasets.MNIST(
+    #     './data', train=False, download=False,
+    #     transform=transforms.ToTensor())
     
+    train_set = torchvision.datasets.MNIST(
+        root='./data', train=True, download=True,
+        transform=transforms.ToTensor())
+    test_set = torchvision.datasets.MNIST(
+        root='./data', train=False, download=True,
+        transform=transforms.ToTensor())
+
     '''
     train_loader = torch.utils.data.DataLoader(
-        datasets.SubMNIST('../data', train=True, download=True,
+        datasets.SubMNIST('./data', train=True, download=True,
                        transform=transforms.Compose([
                            transforms.ToTensor()
 #                           transforms.Normalize((0.1307,), (0.3081,))
@@ -89,7 +99,7 @@ def build_dataset(args):
         batch_size=args.batch_size, num_workers=20)
 
     test_loader = torch.utils.data.DataLoader(
-        datasets.MNIST('../data', train=False, transform=transforms.Compose([
+        datasets.MNIST('./data', train=False, transform=transforms.Compose([
                            transforms.ToTensor()
  #                          transforms.Normalize((0.1307,), (0.3081,))
                        ])),
@@ -98,21 +108,7 @@ def build_dataset(args):
     '''
     return train_set, test_set
 
-#
-#class Net(nn.Module):
-#    def __init__(self):
-#        super(Net, self).__init__()
-#        self.fc1 = nn.Linear(28 * 28, 256)
-##        self.fc2 = nn.Linear(200, 200)
-#        self.fc3 = nn.Linear(256, 10)
-#
-#    def forward(self, x):
-#        x = F.relu(self.fc1(x))
-##        x = F.relu(self.fc2(x))
-#        x = self.fc3(x)
-#        return F.log_softmax(x,dim=1)
-    
-    
+
 class Net(nn.Module):
     def __init__(self):
         super(Net, self).__init__()
@@ -121,10 +117,25 @@ class Net(nn.Module):
         self.fc3 = nn.Linear(256, 10)
 
     def forward(self, x):
-        x = F.relu(self.fc1(x))
-        x = F.relu(self.fc2(x))
+        x = F.sigmoid(self.fc1(x.float()))
+        x = F.sigmoid(self.fc2(x.float()))
         x = self.fc3(x)
-        return F.log_softmax(x,dim=1)
+        return F.log_softmax(x,dim=1)  
+
+
+
+# class Net(nn.Module):
+#     def __init__(self):
+#         super(Net, self).__init__()
+#         self.fc1 = nn.Linear(28 * 28, 256)
+#         self.fc2 = nn.Linear(256, 256)
+#         self.fc3 = nn.Linear(256, 10)
+
+#     def forward(self, x):
+#         x = F.relu(self.fc1(x.float()))
+#         x = F.relu(self.fc2(x.float()))
+#         x = self.fc3(x)
+#         return F.log_softmax(x,dim=1)
     
 
 def create_optimizer(args, model_params):
@@ -217,7 +228,6 @@ def train_sparse(args, model, device, train_loader, optimizer, epoch):
 
         optimizer.zero_grad()
         loss2.backward()
-
         optimizer.step(grad1)
 
     train_loss = 0
@@ -324,7 +334,7 @@ def main():
     '''
 
 
-    train_sample_nums = [200, 500, 1000, 2000, 5000, 10000, 20000]
+    train_sample_nums = [200, 500, 1000, 2000, 5000, 10000, 20000,50000]
 
     all_train_accs = []
     all_test_accs = []
